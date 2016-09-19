@@ -1,6 +1,7 @@
 package com.example.nurmemet.raswiperefreshlayout;
 
 import android.animation.ValueAnimator;
+import android.content.pm.ProviderInfo;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -34,14 +35,19 @@ public class RaSwipeRefreshDrawable extends Drawable {
     private Rect textBounds = new Rect();
     private Rect indicatorBounds = new Rect();
     private int rotateDegree = 0;
+    private Rect refreshingRect = null;
+    private Drawable refreshingDrawable;
+    ValueAnimator animator;
     /**
      * 以px为单位
      */
     private int textPadding = 20;
+    private int indicatorPadding = 20;
 
-    public RaSwipeRefreshDrawable(Drawable indicatorDrawable, Drawable advertizeDrawable) {
+    public RaSwipeRefreshDrawable(Drawable indicatorDrawable, Drawable advertizeDrawable, Drawable refreshingDrawable) {
         this.indicatorDrawable = indicatorDrawable;
         this.advertizeDrawable = advertizeDrawable;
+        this.refreshingDrawable = refreshingDrawable;
         init();
     }
 
@@ -65,7 +71,7 @@ public class RaSwipeRefreshDrawable extends Drawable {
             advertizeBounds.right = (int) advertizeWidth;
             indicatorBounds.left = (int) (boundsRect.right - indicatorWidth - getMaxTextWidth()) / 2;
         }
-        indicatorBounds.top = advertizeDrawable.getIntrinsicHeight();
+        indicatorBounds.top = advertizeDrawable.getIntrinsicHeight() + indicatorPadding;
         indicatorBounds.bottom = indicatorBounds.top + indicatorDrawable.getIntrinsicHeight();
         indicatorBounds.right = indicatorBounds.left + indicatorDrawable.getIntrinsicWidth();
 
@@ -78,9 +84,15 @@ public class RaSwipeRefreshDrawable extends Drawable {
         advertizeDrawable.setBounds(advertizeBounds);
         indicatorDrawable.setBounds(indicatorBounds);
 
-        boundsRect.bottom = advertizeBounds.height() + indicatorBounds.height();
+        boundsRect.bottom = advertizeBounds.height() + indicatorBounds.height() + indicatorPadding * 2;
 
 
+    }
+
+    public int getMainItemHeight() {
+        int height = 0;
+        height = indicatorPadding * 2 + indicatorBounds.height();
+        return height;
     }
 
     private String getDrawString() {
@@ -112,11 +124,25 @@ public class RaSwipeRefreshDrawable extends Drawable {
     public void draw(Canvas canvas) {
         advertizeDrawable.draw(canvas);
 
+
         canvas.save();
         final int px = indicatorBounds.left + indicatorBounds.width() / 2;
         final int py = indicatorBounds.top + indicatorBounds.height() / 2;
         canvas.rotate(rotateDegree, px, py);
-        indicatorDrawable.draw(canvas);
+        if (mState != SwipeState.REFRESHING) {
+            indicatorDrawable.draw(canvas);
+        } else {
+            if (refreshingRect == null) {
+                refreshingRect = new Rect(indicatorBounds);
+                refreshingRect.top += (refreshingRect.height() - refreshingDrawable.getIntrinsicHeight()) / 2;
+                refreshingRect.bottom = refreshingRect.top + refreshingDrawable.getIntrinsicHeight();
+                refreshingRect.left += (refreshingRect.width() - refreshingDrawable.getIntrinsicWidth()) / 2;
+                refreshingRect.right = refreshingRect.left + refreshingDrawable.getIntrinsicWidth();
+                refreshingDrawable.setBounds(refreshingRect);
+            }
+            refreshingDrawable.draw(canvas);
+        }
+
         canvas.restore();
 
         String str = getDrawString();
@@ -135,9 +161,11 @@ public class RaSwipeRefreshDrawable extends Drawable {
 
     public void set2State(SwipeState state) {
         if (mState != null) {
-
+            if (animator != null) {
+                animator.cancel();
+            }
             if (mState == SwipeState.PULL_TO_REFRESH && state == SwipeState.RELEASE_TO_REFRESH) {
-                ValueAnimator animator = ValueAnimator.ofInt(0, 180);
+                animator = ValueAnimator.ofInt(0, 180);
                 animator.setDuration(400);
                 animator.setInterpolator(new LinearInterpolator());
                 animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
@@ -150,7 +178,7 @@ public class RaSwipeRefreshDrawable extends Drawable {
                 });
                 animator.start();
             } else if (mState == SwipeState.RELEASE_TO_REFRESH && state == SwipeState.PULL_TO_REFRESH) {
-                ValueAnimator animator = ValueAnimator.ofInt(180, 0);
+                animator = ValueAnimator.ofInt(180, 0);
                 animator.setDuration(400);
                 animator.setInterpolator(new LinearInterpolator());
                 animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
@@ -162,7 +190,22 @@ public class RaSwipeRefreshDrawable extends Drawable {
                     }
                 });
                 animator.start();
+            } else if (mState == SwipeState.RELEASE_TO_REFRESH && state == SwipeState.REFRESHING) {
+                animator = ValueAnimator.ofInt(360, 0);
+                animator.setDuration(1000);
+                animator.setInterpolator(new LinearInterpolator());
+                animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(ValueAnimator animation) {
+                        int value = (Integer) animation.getAnimatedValue();
+                        rotateDegree = value;
+                        invalidateSelf();
+                    }
+                });
+                animator.setRepeatCount(ValueAnimator.INFINITE);
+                animator.start();
             }
+
             mState = state;
         }
     }
