@@ -1,5 +1,6 @@
 package com.example.nurmemet.raswiperefreshlayout;
 
+import android.animation.ValueAnimator;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -8,13 +9,14 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.text.TextPaint;
+import android.view.animation.LinearInterpolator;
 
 /**
  * Created by nurmemet on 9/17/2016.
  */
 public class RaSwipeRefreshDrawable extends Drawable {
 
-    private enum SwipeState {PULL_TO_REFRESH, RELEASE_TO_REFRESH, REFRESHING}
+    public enum SwipeState {PULL_TO_REFRESH, RELEASE_TO_REFRESH, REFRESHING}
 
     ;
 
@@ -67,7 +69,7 @@ public class RaSwipeRefreshDrawable extends Drawable {
         indicatorBounds.bottom = indicatorBounds.top + indicatorDrawable.getIntrinsicHeight();
         indicatorBounds.right = indicatorBounds.left + indicatorDrawable.getIntrinsicWidth();
 
-        textBounds.left = indicatorBounds.right;
+        textBounds.left = indicatorBounds.right + textPadding;
         textBounds.right = (int) (textBounds.left + getMaxTextWidth());
         textBounds.top = indicatorBounds.top;
         textBounds.bottom = indicatorBounds.bottom;
@@ -88,10 +90,10 @@ public class RaSwipeRefreshDrawable extends Drawable {
                 str = pull2Refresh;
                 break;
             case REFRESHING:
-                str = release2Refresh;
+                str = refreshing;
                 break;
             case RELEASE_TO_REFRESH:
-                str = refreshing;
+                str = release2Refresh;
                 break;
 
         }
@@ -109,23 +111,60 @@ public class RaSwipeRefreshDrawable extends Drawable {
     @Override
     public void draw(Canvas canvas) {
         advertizeDrawable.draw(canvas);
-        if (mState == SwipeState.PULL_TO_REFRESH) {
-            indicatorDrawable.draw(canvas);
-        } else {
-            canvas.save();
-            canvas.rotate(rotateDegree);
-            indicatorDrawable.draw(canvas);
-            canvas.restore();
-        }
-        String str = getDrawString();
 
-        canvas.drawText(str, 0, str.length(), textBounds.left, textBounds.bottom, textPaint);
+        canvas.save();
+        final int px = indicatorBounds.left + indicatorBounds.width() / 2;
+        final int py = indicatorBounds.top + indicatorBounds.height() / 2;
+        canvas.rotate(rotateDegree, px, py);
+        indicatorDrawable.draw(canvas);
+        canvas.restore();
+
+        String str = getDrawString();
+        resetTextBounds(str);
+        canvas.drawText(str, textBounds.left, textBounds.bottom, textPaint);
     }
 
     private void resetTextBounds(String str) {
         Rect tBounds = new Rect();
         textPaint.getTextBounds(str, 0, str.length(), tBounds);
+        int diff = (textBounds.height() - tBounds.height()) / 2;
+        textBounds.top += diff;
+        textBounds.bottom -= diff;
 
+    }
+
+    public void set2State(SwipeState state) {
+        if (mState != null) {
+
+            if (mState == SwipeState.PULL_TO_REFRESH && state == SwipeState.RELEASE_TO_REFRESH) {
+                ValueAnimator animator = ValueAnimator.ofInt(0, 180);
+                animator.setDuration(400);
+                animator.setInterpolator(new LinearInterpolator());
+                animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(ValueAnimator animation) {
+                        int value = (Integer) animation.getAnimatedValue();
+                        rotateDegree = value;
+                        invalidateSelf();
+                    }
+                });
+                animator.start();
+            } else if (mState == SwipeState.RELEASE_TO_REFRESH && state == SwipeState.PULL_TO_REFRESH) {
+                ValueAnimator animator = ValueAnimator.ofInt(180, 0);
+                animator.setDuration(400);
+                animator.setInterpolator(new LinearInterpolator());
+                animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(ValueAnimator animation) {
+                        int value = (Integer) animation.getAnimatedValue();
+                        rotateDegree = value;
+                        invalidateSelf();
+                    }
+                });
+                animator.start();
+            }
+            mState = state;
+        }
     }
 
     @Override

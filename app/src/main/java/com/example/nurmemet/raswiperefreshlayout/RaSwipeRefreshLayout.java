@@ -31,6 +31,13 @@ public class RaSwipeRefreshLayout extends ViewGroup {
     private float mInitialDownY;
     private float mInitialMotionY;
     private int topOffset = 100;
+    private int mPullSlop = 80;
+    private int mReleaseSlop = 120;
+
+    private static final int STATE_PULL_TO_REFRESH = 1;
+    private static final int STATE_RELEASE_TO_REFRESH = 2;
+    private static final int STATE_REFRESHING = 3;
+    private int mState=STATE_PULL_TO_REFRESH;
 
     public RaSwipeRefreshLayout(Context context) {
         this(context, null);
@@ -63,10 +70,10 @@ public class RaSwipeRefreshLayout extends ViewGroup {
             container = (ViewGroup) getChildAt(0);
             imageView = new ImageView(getContext());
             Drawable indicator = ContextCompat.getDrawable(getContext(), R.mipmap.pull2refres);
-            Drawable advertize=ContextCompat.getDrawable(getContext(),R.mipmap.advertize_view);
+            Drawable advertize = ContextCompat.getDrawable(getContext(), R.mipmap.advertize_view);
             drawable = new RaSwipeRefreshDrawable(indicator, advertize);
             imageView.setImageDrawable(drawable);
-            topOffset=drawable.getIntrinsicHeight();
+            topOffset = drawable.getIntrinsicHeight();
             //imageView.setImageResource(R.mipmap.pull2refres);
             container.addView(imageView, 0);
         } else {
@@ -80,7 +87,7 @@ public class RaSwipeRefreshLayout extends ViewGroup {
             final int childTop = getPaddingTop();
             final int childWidth = width - getPaddingLeft() - getPaddingRight();
             final int childHeight = height - getPaddingTop() - getPaddingBottom();
-            child.layout(childLeft, childTop-topOffset, childLeft + childWidth, childTop + childHeight);
+            child.layout(childLeft, childTop - topOffset, childLeft + childWidth, childTop + childHeight);
         }
     }
 
@@ -104,7 +111,14 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                 }
                 final float y = MotionEventCompat.getY(event, mActivePointerId);
                 final float yDiff = y - mInitialMotionY;
-                ViewCompat.offsetTopAndBottom(container, (int) yDiff);
+                if (container.getTop() > mReleaseSlop&&mState==STATE_PULL_TO_REFRESH) {
+                    drawable.set2State(RaSwipeRefreshDrawable.SwipeState.RELEASE_TO_REFRESH);
+                    mState=STATE_RELEASE_TO_REFRESH;
+                } else if (container.getTop() <mPullSlop&&mState==STATE_RELEASE_TO_REFRESH){
+                    drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
+                    mState=STATE_PULL_TO_REFRESH;
+                }
+                    ViewCompat.offsetTopAndBottom(container, (int) yDiff);
                 mInitialMotionY = y;
                 break;
             case MotionEventCompat.ACTION_POINTER_DOWN: {
