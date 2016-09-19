@@ -15,6 +15,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@android:color/holo_green_light"
+        android:padding="0dp"
+
         >
 
 
@@ -22,6 +24,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:background="@android:color/holo_blue_dark"
+            android:layout_margin="0dp"
             >
 
             <TextView

@@ -32,6 +32,10 @@ public class RaSwipeRefreshDrawable extends Drawable {
     private Rect textBounds = new Rect();
     private Rect indicatorBounds = new Rect();
     private int rotateDegree = 0;
+    /**
+     * 以px为单位
+     */
+    private int textPadding = 20;
 
     public RaSwipeRefreshDrawable(Drawable indicatorDrawable, Drawable advertizeDrawable) {
         this.indicatorDrawable = indicatorDrawable;
@@ -41,8 +45,9 @@ public class RaSwipeRefreshDrawable extends Drawable {
 
     private void init() {
         textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-        textPaint.setTextSize(textSize);
+        textPaint.setTextSize(45);
         textPaint.setColor(Color.BLACK);
+        textPaint.setStyle(Paint.Style.FILL);
 
         float indicatorWidth = indicatorDrawable.getIntrinsicWidth();
         float advertizeWidth = advertizeDrawable.getIntrinsicWidth();
@@ -67,14 +72,17 @@ public class RaSwipeRefreshDrawable extends Drawable {
         textBounds.top = indicatorBounds.top;
         textBounds.bottom = indicatorBounds.bottom;
 
+
         advertizeDrawable.setBounds(advertizeBounds);
         indicatorDrawable.setBounds(indicatorBounds);
+
+        boundsRect.bottom = advertizeBounds.height() + indicatorBounds.height();
 
 
     }
 
     private String getDrawString() {
-        String str = "";
+        String str = "iiiii";
         switch (mState) {
             case PULL_TO_REFRESH:
                 str = pull2Refresh;
@@ -109,7 +117,15 @@ public class RaSwipeRefreshDrawable extends Drawable {
             indicatorDrawable.draw(canvas);
             canvas.restore();
         }
-        canvas.drawText(getDrawString(), textBounds.left, textBounds.top, textPaint);
+        String str = getDrawString();
+
+        canvas.drawText(str, 0, str.length(), textBounds.left, textBounds.bottom, textPaint);
+    }
+
+    private void resetTextBounds(String str) {
+        Rect tBounds = new Rect();
+        textPaint.getTextBounds(str, 0, str.length(), tBounds);
+
     }
 
     @Override
