@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Handler;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
@@ -152,16 +153,41 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                 }
                 mIsDraging = false;
                 //finishSpinner(overscrollTop);
+                mHandler.removeCallbacksAndMessages(null);
                 mActivePointerId = INVALID_POINTER;
-                int top = container.getTop();
+                 int top = container.getTop();
                 if (mState == STATE_RELEASE_TO_REFRESH) {
                     int d=-(top-mReleaseSlop);
                     ViewCompat.offsetTopAndBottom(container,d);
                     drawable.set2State(RaSwipeRefreshDrawable.SwipeState.REFRESHING);
-                }else{
-
+                    mState=STATE_REFRESHING;
+                    mHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            int top = container.getTop();
+                            drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
+                            ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
+                        }
+                    },2000);
+                }
+                else if (mState==STATE_REFRESHING){
+                    int d=-(top-mReleaseSlop);
+                    ViewCompat.offsetTopAndBottom(container,d);
+                    mHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            int top = container.getTop();
+                            drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
+                            ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
+                        }
+                    },2000);
+                }
+                else{
+                    drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
                     ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
                 }
+
+
 
 
                 return false;
@@ -170,6 +196,7 @@ public class RaSwipeRefreshLayout extends ViewGroup {
         }
         return true;
     }
+    private Handler mHandler=new Handler();
 
 
     @Override

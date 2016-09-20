@@ -12,6 +12,9 @@ import android.graphics.drawable.Drawable;
 import android.text.TextPaint;
 import android.view.animation.LinearInterpolator;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 /**
  * Created by nurmemet on 9/17/2016.
  */
@@ -204,6 +207,11 @@ public class RaSwipeRefreshDrawable extends Drawable {
                 });
                 animator.setRepeatCount(ValueAnimator.INFINITE);
                 animator.start();
+
+
+            } else if (state == SwipeState.PULL_TO_REFRESH && mState == SwipeState.REFRESHING) {
+                invalidateSelf();
+                rotateDegree=0;
             }
 
             mState = state;
