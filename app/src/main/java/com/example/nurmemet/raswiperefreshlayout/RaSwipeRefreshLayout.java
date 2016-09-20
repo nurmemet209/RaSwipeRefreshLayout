@@ -39,6 +39,7 @@ public class RaSwipeRefreshLayout extends ViewGroup {
     private static final int STATE_RELEASE_TO_REFRESH = 2;
     private static final int STATE_REFRESHING = 3;
     private int mState = STATE_PULL_TO_REFRESH;
+    private static final float DRAG_RATE = .3f;
 
     public RaSwipeRefreshLayout(Context context) {
         this(context, null);
@@ -61,7 +62,6 @@ public class RaSwipeRefreshLayout extends ViewGroup {
         mTouchSlop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
 
 
-
     }
 
 
@@ -73,11 +73,11 @@ public class RaSwipeRefreshLayout extends ViewGroup {
             imageView = new ImageView(getContext());
             Drawable indicator = ContextCompat.getDrawable(getContext(), R.mipmap.pull2refres);
             Drawable advertize = ContextCompat.getDrawable(getContext(), R.mipmap.advertize_view);
-            Drawable refreshingDrawable=ContextCompat.getDrawable(getContext(),R.mipmap.refreshing);
-            drawable = new RaSwipeRefreshDrawable(indicator, advertize,refreshingDrawable);
+            Drawable refreshingDrawable = ContextCompat.getDrawable(getContext(), R.mipmap.refreshing);
+            drawable = new RaSwipeRefreshDrawable(indicator, advertize, refreshingDrawable);
             imageView.setImageDrawable(drawable);
             topOffset = drawable.getIntrinsicHeight();
-            mReleaseSlop = drawable.getMainItemHeight()-topOffset;
+            mReleaseSlop = drawable.getMainItemHeight() - topOffset;
             //imageView.setImageResource(R.mipmap.pull2refres);
             container.addView(imageView, 0);
         } else {
@@ -107,25 +107,40 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                 mActivePointerId = MotionEventCompat.getPointerId(event, 0);
                 mIsDraging = false;
                 break;
+
             case MotionEvent.ACTION_MOVE:
-                pointerIndex = MotionEventCompat.getPointerId(event, 0);
+                pointerIndex = MotionEventCompat.findPointerIndex(event, mActivePointerId);
                 if (pointerIndex < 0) {
-                    Log.e(LOG_TAG, "invalid pointerId");
+                    Log.e(LOG_TAG, "Got ACTION_MOVE event but have an invalid active pointer id.");
                     return false;
                 }
-                final float y = MotionEventCompat.getY(event, mActivePointerId);
+                final float y = MotionEventCompat.getY(event, pointerIndex);
                 final float yDiff = y - mInitialMotionY;
+                final float overscrollTop = (y - mInitialMotionY) * DRAG_RATE;
+
                 if (container.getTop() > mReleaseSlop && mState == STATE_PULL_TO_REFRESH) {
                     drawable.set2State(RaSwipeRefreshDrawable.SwipeState.RELEASE_TO_REFRESH);
                     mState = STATE_RELEASE_TO_REFRESH;
+                    ViewCompat.offsetTopAndBottom(container, (int) overscrollTop);
                 } else if (container.getTop() < mReleaseSlop && mState == STATE_RELEASE_TO_REFRESH) {
                     drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
                     mState = STATE_PULL_TO_REFRESH;
-                }else if (container.getTop()<mReleaseSlop&&mState==STATE_REFRESHING){
+                    ViewCompat.offsetTopAndBottom(container, (int) overscrollTop);
+                } else if (container.getTop() < mReleaseSlop && mState == STATE_REFRESHING) {
                     drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
                     mState = STATE_PULL_TO_REFRESH;
+                    ViewCompat.offsetTopAndBottom(container, (int) overscrollTop);
                 }
-                ViewCompat.offsetTopAndBottom(container, (int) yDiff);
+                else if (container.getTop()+overscrollTop<=-topOffset&&overscrollTop<0){
+                    //System.out.println("top="+container.getTop());
+                    final float scroll=container.getTop()+overscrollTop+topOffset;
+                    //ViewCompat.offsetTopAndBottom(container, (int) scroll);
+                }
+                else{
+                    ViewCompat.offsetTopAndBottom(container, (int) overscrollTop);
+                }
+
+
                 mInitialMotionY = y;
                 break;
             case MotionEventCompat.ACTION_POINTER_DOWN: {
@@ -137,6 +152,9 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                 mActivePointerId = MotionEventCompat.getPointerId(event, pointerIndex);
             }
             break;
+            case MotionEventCompat.ACTION_POINTER_UP:
+                onSecondaryPointerUp(event);
+                break;
             case MotionEvent.ACTION_CANCEL: {
                 mIsDraging = false;
                 //finishSpinner(overscrollTop);
@@ -144,7 +162,7 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                 int top = container.getTop();
                 ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
             }
-            break;
+            return false;
             case MotionEvent.ACTION_UP: {
                 pointerIndex = MotionEventCompat.findPointerIndex(event, mActivePointerId);
                 if (pointerIndex < 0) {
@@ -155,39 +173,21 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                 //finishSpinner(overscrollTop);
                 mHandler.removeCallbacksAndMessages(null);
                 mActivePointerId = INVALID_POINTER;
-                 int top = container.getTop();
+                int top = container.getTop();
                 if (mState == STATE_RELEASE_TO_REFRESH) {
-                    int d=-(top-mReleaseSlop);
-                    ViewCompat.offsetTopAndBottom(container,d);
+                    int d = -(top - mReleaseSlop);
+                    ViewCompat.offsetTopAndBottom(container, d);
                     drawable.set2State(RaSwipeRefreshDrawable.SwipeState.REFRESHING);
-                    mState=STATE_REFRESHING;
-                    mHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            int top = container.getTop();
-                            drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
-                            ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
-                        }
-                    },2000);
-                }
-                else if (mState==STATE_REFRESHING){
-                    int d=-(top-mReleaseSlop);
-                    ViewCompat.offsetTopAndBottom(container,d);
-                    mHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            int top = container.getTop();
-                            drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
-                            ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
-                        }
-                    },2000);
-                }
-                else{
+                    mState = STATE_REFRESHING;
+                    delayHide();
+                } else if (mState == STATE_REFRESHING) {
+                    int d = -(top - mReleaseSlop);
+                    ViewCompat.offsetTopAndBottom(container, d);
+                    delayHide();
+                } else {
                     drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
                     ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
                 }
-
-
 
 
                 return false;
@@ -196,7 +196,30 @@ public class RaSwipeRefreshLayout extends ViewGroup {
         }
         return true;
     }
-    private Handler mHandler=new Handler();
+
+    private void onSecondaryPointerUp(MotionEvent ev) {
+        final int pointerIndex = MotionEventCompat.getActionIndex(ev);
+        final int pointerId = MotionEventCompat.getPointerId(ev, pointerIndex);
+        if (pointerId == mActivePointerId) {
+            // This was our active pointer going up. Choose a new
+            // active pointer and adjust accordingly.
+            final int newPointerIndex = pointerIndex == 0 ? 1 : 0;
+            mActivePointerId = MotionEventCompat.getPointerId(ev, newPointerIndex);
+        }
+    }
+
+    private void delayHide() {
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                int top = container.getTop();
+                drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
+                ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
+            }
+        }, 2000);
+    }
+
+    private Handler mHandler = new Handler();
 
 
     @Override
@@ -242,10 +265,11 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                     return false;
                 }
                 final float yDiff = y - mInitialDownY;
-                if (yDiff > mTouchSlop && !mIsDraging) {
+                if (Math.abs(yDiff) > mTouchSlop && !mIsDraging) {
                     mIsDraging = true;
                     mInitialMotionY = y;
                 }
+                System.out.println(mIsDraging + "");
 
                 break;
             case MotionEvent.ACTION_UP:
@@ -262,6 +286,7 @@ public class RaSwipeRefreshLayout extends ViewGroup {
     private float getMotionEventY(MotionEvent ev, int pointerId) {
         int index = MotionEventCompat.getPointerId(ev, pointerId);
         if (index < 0) {
+            Log.e(LOG_TAG, "invalid poinerId");
             return -1;
         }
         return MotionEventCompat.getY(ev, pointerId);

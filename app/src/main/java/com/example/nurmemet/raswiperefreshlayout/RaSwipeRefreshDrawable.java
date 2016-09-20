@@ -1,7 +1,6 @@
 package com.example.nurmemet.raswiperefreshlayout;
 
 import android.animation.ValueAnimator;
-import android.content.pm.ProviderInfo;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -11,9 +10,6 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.text.TextPaint;
 import android.view.animation.LinearInterpolator;
-
-import java.util.Timer;
-import java.util.TimerTask;
 
 /**
  * Created by nurmemet on 9/17/2016.
@@ -207,11 +203,9 @@ public class RaSwipeRefreshDrawable extends Drawable {
                 });
                 animator.setRepeatCount(ValueAnimator.INFINITE);
                 animator.start();
-
-
             } else if (state == SwipeState.PULL_TO_REFRESH && mState == SwipeState.REFRESHING) {
                 invalidateSelf();
-                rotateDegree=0;
+                rotateDegree = 0;
             }
 
             mState = state;
