@@ -1,8 +1,6 @@
 package com.example.nurmemet.raswiperefreshlayout;
 
 import android.content.Context;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.support.v4.content.ContextCompat;
@@ -21,18 +19,17 @@ import android.widget.ImageView;
  */
 public class RaSwipeRefreshLayout extends ViewGroup {
     private static final int INVALID_POINTER = -1;
-    private static String className = RaSwipeRefreshLayout.class.getSimpleName();
+    private static String CLASS_NAME = RaSwipeRefreshLayout.class.getSimpleName();
     private static final String LOG_TAG = RaSwipeRefreshLayout.class.getSimpleName();
-    private ImageView imageView;
-    private RaSwipeRefreshDrawable drawable;
-    private ViewGroup container;
+    private ImageView mTopImageView;
+    private RaSwipeRefreshDrawable mTopDrawable;
+    private ViewGroup mContainer;
     private int mTouchSlop;
     private int mActivePointerId;
-    private boolean mIsDraging = false;
+    private boolean mIsBeingDragged = false;
     private float mInitialDownY;
     private float mInitialMotionY;
-    private int topOffset = 100;
-    //private int mPullSlop = 80;
+    private int mTopOffset = -1;
     private int mReleaseSlop = 120;
 
     private static final int STATE_PULL_TO_REFRESH = 1;
@@ -50,14 +47,10 @@ public class RaSwipeRefreshLayout extends ViewGroup {
         init();
     }
 
-    private void ensureTarget() {
-
-    }
-
     private void init() {
         int childNum = getChildCount();
         if (childNum > 1) {
-            throw new IllegalStateException(className + "只能有一个孩子");
+            throw new IllegalStateException(CLASS_NAME + "只能有一个孩子");
         }
         mTouchSlop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
 
@@ -68,79 +61,74 @@ public class RaSwipeRefreshLayout extends ViewGroup {
     @Override
     protected void onLayout(boolean b, int i, int i1, int i2, int i3) {
 
-        if (imageView == null) {
-            container = (ViewGroup) getChildAt(0);
-            imageView = new ImageView(getContext());
+        if (mTopImageView == null) {
+            mContainer = (ViewGroup) getChildAt(0);
+            mTopImageView = new ImageView(getContext());
             Drawable indicator = ContextCompat.getDrawable(getContext(), R.mipmap.pull2refres);
             Drawable advertize = ContextCompat.getDrawable(getContext(), R.mipmap.advertize_view);
             Drawable refreshingDrawable = ContextCompat.getDrawable(getContext(), R.mipmap.refreshing);
-            drawable = new RaSwipeRefreshDrawable(indicator, advertize, refreshingDrawable);
-            imageView.setImageDrawable(drawable);
-            topOffset = drawable.getIntrinsicHeight();
-            mReleaseSlop = drawable.getMainItemHeight() - topOffset;
-            //imageView.setImageResource(R.mipmap.pull2refres);
-            container.addView(imageView, 0);
+            mTopDrawable = new RaSwipeRefreshDrawable(indicator, advertize, refreshingDrawable, getContext());
+            mTopImageView.setImageDrawable(mTopDrawable);
+            mTopOffset = mTopDrawable.getIntrinsicHeight();
+            mReleaseSlop = mTopDrawable.getMainItemHeight() - mTopOffset;
+            mContainer.addView(mTopImageView, 0);
         } else {
             final int width = getMeasuredWidth();
             final int height = getMeasuredHeight();
             if (getChildCount() == 0) {
                 return;
             }
-            final View child = container;
+            final View child = mContainer;
             final int childLeft = getPaddingLeft();
             final int childTop = getPaddingTop();
             final int childWidth = width - getPaddingLeft() - getPaddingRight();
             final int childHeight = height - getPaddingTop() - getPaddingBottom();
-            child.layout(childLeft, childTop - topOffset, childLeft + childWidth, childTop + childHeight);
+            child.layout(childLeft, childTop - mTopOffset, childLeft + childWidth, childTop + childHeight);
         }
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         final int action = MotionEventCompat.getActionMasked(event);
-        if (canChildScrollUp(container)) {
+        if (canChildScrollUp(mContainer)) {
             return false;
         }
         int pointerIndex = -1;
         switch (action) {
             case MotionEvent.ACTION_DOWN:
                 mActivePointerId = MotionEventCompat.getPointerId(event, 0);
-                mIsDraging = false;
+                mIsBeingDragged = false;
                 break;
 
             case MotionEvent.ACTION_MOVE:
+                mIsBeingDragged = true;
                 pointerIndex = MotionEventCompat.findPointerIndex(event, mActivePointerId);
                 if (pointerIndex < 0) {
                     Log.e(LOG_TAG, "Got ACTION_MOVE event but have an invalid active pointer id.");
                     return false;
                 }
                 final float y = MotionEventCompat.getY(event, pointerIndex);
-                final float yDiff = y - mInitialMotionY;
                 final float overscrollTop = (y - mInitialMotionY) * DRAG_RATE;
 
-                if (container.getTop() > mReleaseSlop && mState == STATE_PULL_TO_REFRESH) {
-                    drawable.set2State(RaSwipeRefreshDrawable.SwipeState.RELEASE_TO_REFRESH);
+                if (mContainer.getTop() > mReleaseSlop && mState == STATE_PULL_TO_REFRESH) {
+                    mTopDrawable.set2State(RaSwipeRefreshDrawable.SwipeState.RELEASE_TO_REFRESH);
                     mState = STATE_RELEASE_TO_REFRESH;
-                    ViewCompat.offsetTopAndBottom(container, (int) overscrollTop);
-                } else if (container.getTop() < mReleaseSlop && mState == STATE_RELEASE_TO_REFRESH) {
-                    drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
+                    ViewCompat.offsetTopAndBottom(mContainer, (int) overscrollTop);
+                } else if (mContainer.getTop() < mReleaseSlop && mState == STATE_RELEASE_TO_REFRESH) {
+                    mTopDrawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
                     mState = STATE_PULL_TO_REFRESH;
-                    ViewCompat.offsetTopAndBottom(container, (int) overscrollTop);
-                } else if (container.getTop() < mReleaseSlop && mState == STATE_REFRESHING) {
-                    drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
+                    ViewCompat.offsetTopAndBottom(mContainer, (int) overscrollTop);
+                } else if (mContainer.getTop() < mReleaseSlop && mState == STATE_REFRESHING) {
+                    mTopDrawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
                     mState = STATE_PULL_TO_REFRESH;
-                    ViewCompat.offsetTopAndBottom(container, (int) overscrollTop);
+                    ViewCompat.offsetTopAndBottom(mContainer, (int) overscrollTop);
+                } else if (mContainer.getTop() + overscrollTop <= -mTopOffset && overscrollTop < 0) {
+                    //System.out.println("top="+mContainer.getTop());
+                    // final float scroll= mContainer.getTop()+overscrollTop+ mTopOffset;
+                    //ViewCompat.offsetTopAndBottom(mContainer, (int) scroll);
+                } else {
+                    ViewCompat.offsetTopAndBottom(mContainer, (int) overscrollTop);
                 }
-                else if (container.getTop()+overscrollTop<=-topOffset&&overscrollTop<0){
-                    //System.out.println("top="+container.getTop());
-                    final float scroll=container.getTop()+overscrollTop+topOffset;
-                    //ViewCompat.offsetTopAndBottom(container, (int) scroll);
-                }
-                else{
-                    ViewCompat.offsetTopAndBottom(container, (int) overscrollTop);
-                }
-
-
                 mInitialMotionY = y;
                 break;
             case MotionEventCompat.ACTION_POINTER_DOWN: {
@@ -149,18 +137,21 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                     Log.e(LOG_TAG, "Got ACTION_POINTER_DOWN event but have an invalid action index.");
                     return false;
                 }
-                mActivePointerId = MotionEventCompat.getPointerId(event, pointerIndex);
+                if (mActivePointerId == INVALID_POINTER) {
+                    mActivePointerId = MotionEventCompat.getPointerId(event, pointerIndex);
+                }
+
             }
             break;
             case MotionEventCompat.ACTION_POINTER_UP:
                 onSecondaryPointerUp(event);
                 break;
             case MotionEvent.ACTION_CANCEL: {
-                mIsDraging = false;
+                mIsBeingDragged = false;
                 //finishSpinner(overscrollTop);
                 mActivePointerId = INVALID_POINTER;
-                int top = container.getTop();
-                ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
+                int top = mContainer.getTop();
+                ViewCompat.offsetTopAndBottom(mContainer, -top - mTopOffset + getPaddingTop());
             }
             return false;
             case MotionEvent.ACTION_UP: {
@@ -169,27 +160,25 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                     Log.e(LOG_TAG, "Got ACTION_UP event but don't have an active pointer id.");
                     return false;
                 }
-                mIsDraging = false;
+                mIsBeingDragged = false;
                 //finishSpinner(overscrollTop);
                 mHandler.removeCallbacksAndMessages(null);
                 mActivePointerId = INVALID_POINTER;
-                int top = container.getTop();
+                final int top = mContainer.getTop();
                 if (mState == STATE_RELEASE_TO_REFRESH) {
                     int d = -(top - mReleaseSlop);
-                    ViewCompat.offsetTopAndBottom(container, d);
-                    drawable.set2State(RaSwipeRefreshDrawable.SwipeState.REFRESHING);
+                    ViewCompat.offsetTopAndBottom(mContainer, d);
+                    mTopDrawable.set2State(RaSwipeRefreshDrawable.SwipeState.REFRESHING);
                     mState = STATE_REFRESHING;
                     delayHide();
                 } else if (mState == STATE_REFRESHING) {
                     int d = -(top - mReleaseSlop);
-                    ViewCompat.offsetTopAndBottom(container, d);
+                    ViewCompat.offsetTopAndBottom(mContainer, d);
                     delayHide();
                 } else {
-                    drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
-                    ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
+                    mTopDrawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
+                    ViewCompat.offsetTopAndBottom(mContainer, -top - mTopOffset + getPaddingTop());
                 }
-
-
                 return false;
             }
 
@@ -212,9 +201,9 @@ public class RaSwipeRefreshLayout extends ViewGroup {
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                int top = container.getTop();
-                drawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
-                ViewCompat.offsetTopAndBottom(container, -top - topOffset + getPaddingTop());
+                int top = mContainer.getTop();
+                mTopDrawable.set2State(RaSwipeRefreshDrawable.SwipeState.PULL_TO_REFRESH);
+                ViewCompat.offsetTopAndBottom(mContainer, -top - mTopOffset + getPaddingTop());
             }
         }, 2000);
     }
@@ -226,10 +215,8 @@ public class RaSwipeRefreshLayout extends ViewGroup {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         //测量孩子节点
-        if (container != null) {
-            // container.measure(widthMeasureSpec, heightMeasureSpec);
-
-            container.measure(MeasureSpec.makeMeasureSpec(
+        if (mContainer != null) {
+            mContainer.measure(MeasureSpec.makeMeasureSpec(
                     getMeasuredWidth() - getPaddingLeft() - getPaddingRight(),
                     MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(
                     getMeasuredHeight() - getPaddingTop() - getPaddingBottom(), MeasureSpec.EXACTLY));
@@ -241,13 +228,13 @@ public class RaSwipeRefreshLayout extends ViewGroup {
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         int action = MotionEventCompat.getActionMasked(ev);
-        if (canChildScrollUp(container)) {
+        if (canChildScrollUp(mContainer)) {
             return false;
         }
         switch (action) {
             case MotionEvent.ACTION_DOWN:
                 mActivePointerId = MotionEventCompat.getPointerId(ev, 0);
-                mIsDraging = false;
+                mIsBeingDragged = false;
                 final float initialDownY = getMotionEventY(ev, mActivePointerId);
                 if (initialDownY == -1) {
                     return false;
@@ -265,21 +252,21 @@ public class RaSwipeRefreshLayout extends ViewGroup {
                     return false;
                 }
                 final float yDiff = y - mInitialDownY;
-                if (Math.abs(yDiff) > mTouchSlop && !mIsDraging) {
-                    mIsDraging = true;
+                if (Math.abs(yDiff) > mTouchSlop && !mIsBeingDragged) {
+                    mIsBeingDragged = true;
                     mInitialMotionY = y;
                 }
-                System.out.println(mIsDraging + "");
+                System.out.println(mIsBeingDragged + "");
 
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                mIsDraging = false;
+                mIsBeingDragged = false;
                 mActivePointerId = INVALID_POINTER;
                 break;
 
         }
-        return mIsDraging;
+        return mIsBeingDragged;
 
     }
 
